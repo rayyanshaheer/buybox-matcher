@@ -1,0 +1,15 @@
+{
+  "enabled": true,
+  "name": "Commit Worked Files",
+  "description": "After an agent execution completes, commit only the files that were actually changed during this work session (not all uncommitted files) using a detailed commit message.",
+  "version": "1",
+  "when": {
+    "type": "postTaskExecution"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Work has just completed. Create a git commit, but ONLY for the files that were actually created or modified as part of the work you just did in this session. Do NOT run `git add .` or `git add -A`, and do NOT commit unrelated pre-existing uncommitted files.\n\nFollow these steps:\n\n1. Run `git status` and `git diff` to review the current state and identify exactly which files were touched during this work session.\n2. Compare against the changes you actually made. If there are pre-existing uncommitted files that you did NOT work on, leave them untouched (do not stage them).\n3. Stage ONLY the specific files you worked on by listing them explicitly, for example:\n   `git add path/to/file1 path/to/file2`\n4. Before committing, check for any files that may contain secrets (e.g. `.env`, credentials, API keys, certificates, tokens) and do not commit them unless they are intentionally part of the work.\n5. Create a local git commit using a detailed, structured commit message.\n6. Do NOT push. Only create the local commit.\n\nCommit message requirements:\n\n* Use Conventional Commits format:\n\n  * `feat:`\n  * `fix:`\n  * `refactor:`\n  * `docs:`\n  * `test:`\n  * `chore:`\n  * etc.\n* Prefer scoped commits when appropriate:\n\n  * `feat(auth):`\n  * `fix(api):`\n  * `refactor(ui):`\n\nThe first line must provide a complete high-level summary of the change so someone can understand the purpose of the commit at a glance.\n\nExample:\n\n`feat(auth): Guard dashboard access and update header nav based on auth status`\n\nAfter the summary line, include a blank line followed by a body that explains the implementation details as concise bullet points.\n\nExample:\n\nfeat(auth): Guard dashboard access and update header nav based on auth status\n\n* Add redirect to login for unauthenticated users accessing dashboard\n* Update SiteHeader to check authentication status on render\n* Conditionally display dashboard navigation for authenticated users\n* Show login and create account links only for unauthenticated users\n* Remove static account navigation configuration\n* Add getAuthStatus helper using Supabase server client\n\nThe commit message should answer both:\n\n* What changed? (high-level summary in the title)\n* How was it implemented? (detailed bullet points in the body)\n\nBefore committing, verify that the staged files match only the work completed in this session.\n\nIf there are no files modified by this session, do not create a commit and report that there is nothing to commit.\n"
+  },
+  "workspaceFolderName": "buybox-matcher",
+  "shortName": "commit-worked-files"
+}
