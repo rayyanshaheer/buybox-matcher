@@ -701,3 +701,25 @@ def test_property_4_exactly_one_reason_per_component(prop, bb):
     for reason in result.reasons.fit + result.reasons.risk:
         assert isinstance(reason, str)
         assert reason.strip() != ""
+
+
+# Feature: buybox-matcher, Property 5: Hard-filter cap
+# Validates: Requirements 2.9
+#
+# Market and Property_Type are hard-filter components. Whenever either one
+# scores 0 — the Property `city` matches no Buy_Box `markets` entry, or the
+# Property `property_type` does not match the Buy_Box `property_type` — the
+# final `score` must be capped at the configured hard-filter cap (25),
+# regardless of how many points the other components award. Across the
+# generated input space this property asserts the implication: if the Market
+# component or the Property_Type component awards 0 points, then the final
+# score returned by score() is <= hard_filter_cap.
+@settings(max_examples=200)
+@given(prop=valid_scoring_properties(), bb=valid_scoring_buy_boxes())
+def test_property_5_hard_filter_cap(prop, bb):
+    cfg = SCORING_CONFIG
+    market = _score_market(prop, bb, cfg)
+    property_type = _score_property_type(prop, bb, cfg)
+    result = score(prop, bb, cfg)
+    if market.points == 0 or property_type.points == 0:
+        assert result.score <= cfg.hard_filter_cap
