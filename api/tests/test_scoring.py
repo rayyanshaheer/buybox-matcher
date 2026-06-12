@@ -723,3 +723,42 @@ def test_property_5_hard_filter_cap(prop, bb):
     result = score(prop, bb, cfg)
     if market.points == 0 or property_type.points == 0:
         assert result.score <= cfg.hard_filter_cap
+
+
+# Feature: buybox-matcher, Property 6: Market match scoring (case-insensitive, trimmed)
+# Validates: Requirements 2.5, 2.6
+#
+# The Market component (weight 30) compares the Property `city` against the
+# Buy_Box `markets` entries using a trimmed, case-folded comparison. This
+# property pins the biconditional: the component awards its full weight (30)
+# with a market FIT reason if and only if the normalized `city` equals some
+# normalized `markets` entry; otherwise it awards 0 with a market RISK reason.
+# The expected membership is computed independently here (mirroring the
+# trim+casefold normalization) so the test does not merely echo the engine.
+@settings(max_examples=200)
+@given(prop=valid_scoring_properties(), bb=valid_scoring_buy_boxes())
+def test_property_6_market_match_scoring(prop, bb):
+    cfg = SCORING_CONFIG
+    component = _score_market(prop, bb, cfg)
+
+    # Independent expectation: trimmed, case-folded city membership in markets.
+    city_norm = prop.city.strip().casefold()
+    market_norms = {m.strip().casefold() for m in bb.markets if m is not None}
+    expected_match = city_norm in market_norms
+
+    if expected_match:
+        # Awards the full Market weight (30) as a fit, with a non-empty reason.
+        assert component.points == cfg.weight_market
+        assert component.is_fit is True
+    else:
+        # Awards 0 as a risk, with a non-empty reason.
+        assert component.points == 0
+        assert component.is_fit is False
+    assert component.reason.strip() != ""
+
+    # The fit/risk reason placement is consistent with the full score() output.
+    result = score(prop, bb, cfg)
+    if expected_match:
+        assert component.reason in result.reasons.fit
+    else:
+        assert component.reason in result.reasons.risk
