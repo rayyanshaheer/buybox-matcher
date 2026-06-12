@@ -806,3 +806,66 @@ def test_property_7_property_type_match_scoring(prop, bb):
         assert component.reason in result.reasons.fit
     else:
         assert component.reason in result.reasons.risk
+
+
+# Feature: buybox-matcher, Property 8: Strategy-mapping scoring
+# Validates: Requirements 3.1, 3.2, 3.3, 3.4, 3.5, 3.6
+#
+# The Strategy component (weight 20) maps a property `condition` to the buyer
+# `strategy` it suits. This property pins the biconditional: the component
+# awards its full weight (20) with a strategy FIT reason if and only if one of
+# the suited cases holds, and otherwise awards 0 with a strategy RISK reason.
+# The suited cases (computed independently below, mirroring the engine's
+# evaluation order — wholesale is honored BEFORE the condition guard) are:
+#   * `wholesale` for ANY condition (incl. null/out-of-vocab condition) — 3.3,
+#   * `distressed`/`light_rehab` with `fix_and_flip` or `brrrr` — 3.1,
+#   * `turnkey` with `buy_and_hold` — 3.2.
+# Everything else awards 0 + risk, including a null/out-of-vocab `strategy`
+# (3.6), a non-wholesale strategy with a null/out-of-vocab `condition` (3.5),
+# and a known-but-unsuited condition/strategy pairing (3.4). The expectation is
+# recomputed here so the test does not merely echo the engine.
+@settings(max_examples=200)
+@given(prop=valid_scoring_properties(), bb=valid_scoring_buy_boxes())
+def test_property_8_strategy_mapping_scoring(prop, bb):
+    cfg = SCORING_CONFIG
+    component = _score_strategy(prop, bb, cfg)
+
+    # Independent expectation. Vocabularies and suited-pairs mirror the engine
+    # (api.scoring._score_strategy / api.config strategy mapping) but are stated
+    # here directly so the test is an independent oracle.
+    valid_strategies = {"fix_and_flip", "brrrr", "buy_and_hold", "wholesale"}
+    valid_conditions = {"distressed", "light_rehab", "turnkey"}
+    suited = {
+        "distressed": {"fix_and_flip", "brrrr"},
+        "light_rehab": {"fix_and_flip", "brrrr"},
+        "turnkey": {"buy_and_hold"},
+    }
+    strategy = bb.strategy
+    condition = prop.condition
+
+    if strategy is None or strategy not in valid_strategies:
+        expected_fit = False  # 3.6 — null/out-of-vocab strategy.
+    elif strategy == "wholesale":
+        expected_fit = True  # 3.3 — wholesale fits any profile (before guard).
+    elif condition is None or condition not in valid_conditions:
+        expected_fit = False  # 3.5 — null/out-of-vocab condition.
+    else:
+        # 3.1/3.2 when suited, 3.4 when a known condition is not suited.
+        expected_fit = strategy in suited[condition]
+
+    if expected_fit:
+        # Awards the full Strategy weight (20) as a fit.
+        assert component.points == cfg.weight_strategy
+        assert component.is_fit is True
+    else:
+        # Awards 0 as a risk (null/out-of-vocab/unsuited).
+        assert component.points == 0
+        assert component.is_fit is False
+    assert component.reason.strip() != ""
+
+    # The fit/risk reason placement is consistent with the full score() output.
+    result = score(prop, bb, cfg)
+    if expected_fit:
+        assert component.reason in result.reasons.fit
+    else:
+        assert component.reason in result.reasons.risk
