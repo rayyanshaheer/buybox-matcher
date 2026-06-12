@@ -869,3 +869,116 @@ def test_property_8_strategy_mapping_scoring(prop, bb):
         assert component.reason in result.reasons.fit
     else:
         assert component.reason in result.reasons.risk
+
+
+# Feature: buybox-matcher, Property 9: Price-range scoring with partial credit
+# Validates: Requirements 4.1, 4.2, 4.3, 4.4, 4.5
+#
+# The Price component (weight 20) awards full credit, 10 partial points, or 0,
+# with exactly one corresponding fit/risk reason, across four input shapes:
+#   * both bounds null            -> 20 fit, "no price bound specified" (4.5)
+#   * both bounds present         -> 20 in range / 10 within 10% of a violated
+#                                    bound / 0 beyond that (4.1-4.3)
+#   * exactly one bound present   -> 20 satisfied / 10 within 10% of the
+#                                    violated single bound / 0 beyond (4.4)
+# This property independently recomputes the expected band (mirroring the
+# engine's 10% near-band arithmetic with `price_near_band_pct`) so the test is
+# an oracle rather than an echo, then verifies the awarded points, fit flag,
+# and that the component's reason lands in the matching fit/risk list of the
+# full score() output.
+def _expected_price_band(
+    price: int | None,
+    price_min: int | None,
+    price_max: int | None,
+    cfg=SCORING_CONFIG,
+) -> tuple[int, bool]:
+    """Independent oracle: (expected_points, expected_is_fit) for the Price band.
+
+    Mirrors Req 4.1-4.5 without calling the engine's own price scorer.
+    """
+    band = cfg.price_near_band_pct
+    full = cfg.weight_price
+    partial = cfg.price_partial_points
+
+    # 4.5 — neither bound specified.
+    if price_min is None and price_max is None:
+        return (full, True)
+    # A null property price cannot be evaluated against a bound.
+    if price is None:
+        return (0, False)
+
+    # 4.1-4.3 — both bounds present.
+    if price_min is not None and price_max is not None:
+        if price_min <= price <= price_max:
+            return (full, True)
+        if (price_min * (1 - band) <= price < price_min) or (
+            price_max < price <= price_max * (1 + band)
+        ):
+            return (partial, False)
+        return (0, False)
+
+    # 4.4 — exactly one bound present (lower).
+    if price_min is not None:
+        if price >= price_min:
+            return (full, True)
+        if price_min * (1 - band) <= price < price_min:
+            return (partial, False)
+        return (0, False)
+
+    # 4.4 — exactly one bound present (upper).
+    if price <= price_max:
+        return (full, True)
+    if price_max < price <= price_max * (1 + band):
+        return (partial, False)
+    return (0, False)
+
+
+@settings(max_examples=200)
+@given(prop=valid_scoring_properties(), bb=valid_scoring_buy_boxes())
+def test_property_9_price_range_scoring(prop, bb):
+    cfg = SCORING_CONFIG
+    component = _score_price(prop, bb, cfg)
+
+    expected_points, expected_is_fit = _expected_price_band(
+        prop.price, bb.price_min, bb.price_max, cfg
+    )
+
+    # Awarded points and fit flag match the independent band oracle (20/10/0).
+    assert component.points == expected_points
+    assert component.is_fit is expected_is_fit
+    # The awarded points are always one of the three configured bands.
+    assert component.points in (0, cfg.price_partial_points, cfg.weight_price)
+    # Exactly one corresponding reason, and it is non-empty.
+    assert component.reason.strip() != ""
+
+    # The fit/risk reason placement is consistent with the full score() output.
+    result = score(prop, bb, cfg)
+    if expected_is_fit:
+        assert component.reason in result.reasons.fit
+    else:
+        assert component.reason in result.reasons.risk
+
+
+@settings(max_examples=200)
+@given(scenario=price_band_scenarios())
+def test_property_9_price_band_transitions_both_bounds(scenario):
+    """Densely exercise the 20/10/0 both-bounds bands around the 10% near-band.
+
+    `price_band_scenarios()` samples prices straddling both bounds (in-range,
+    within 10% of a violated bound, and far outside), giving dense coverage of
+    the Req 4.1-4.3 transitions that random buy boxes hit only sparsely.
+    """
+    cfg = SCORING_CONFIG
+    price, price_min, price_max = scenario
+    prop = make_property(price=price)
+    bb = make_buy_box(price_min=price_min, price_max=price_max)
+
+    component = _score_price(prop, bb, cfg)
+    expected_points, expected_is_fit = _expected_price_band(
+        price, price_min, price_max, cfg
+    )
+
+    assert component.points == expected_points
+    assert component.is_fit is expected_is_fit
+    assert component.points in (0, cfg.price_partial_points, cfg.weight_price)
+    assert component.reason.strip() != ""
