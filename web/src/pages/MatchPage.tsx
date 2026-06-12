@@ -110,7 +110,7 @@ export default function MatchPage() {
     setMatchError(null);
     setIsDemo(false);
     try {
-      const response = await matchProperty(property);
+      const response = await matchProperty(property, { limit: 10 });
       // Order rows by descending score (13.4); sort defensively rather than
       // assuming the backend ordering.
       const ordered = [...response.matches].sort((a, b) => b.score - a.score);
