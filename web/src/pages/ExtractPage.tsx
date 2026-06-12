@@ -21,8 +21,9 @@
  * holds no secrets and references no external URL of its own (Req 14.2).
  */
 import { useState } from "react";
-import { ApiError, extractBuyBox, getStoredApiKey } from "../lib/api";
+import { ApiError, extractBuyBox, getStoredApiKey, createBuyerManual } from "../lib/api";
 import BuyBoxCard from "../components/BuyBoxCard";
+import ManualBuyerForm, { type ManualBuyerData } from "../components/ManualBuyerForm";
 import type { ExtractResponse } from "../types";
 
 /** Field length limits from Requirement 12.1. */
@@ -39,6 +40,8 @@ const MSG_GENERIC_FAILED =
 const MSG_SAVE_CONFIRM = "Buyer saved.";
 
 export default function ExtractPage() {
+  const [mode, setMode] = useState<"ai" | "manual">("manual");
+
   // Controlled form values (retained verbatim across a 422 per Req 12.7).
   const [message, setMessage] = useState("");
   const [name, setName] = useState("");
@@ -49,6 +52,7 @@ export default function ExtractPage() {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
   const [result, setResult] = useState<ExtractResponse | null>(null);
+  const [manualSuccess, setManualSuccess] = useState(false);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -90,43 +94,81 @@ export default function ExtractPage() {
     }
   }
 
+  async function handleManualSubmit(data: ManualBuyerData) {
+    setIsSubmitting(true);
+    setApiError(null);
+    setManualSuccess(false);
+    try {
+      await createBuyerManual(data);
+      setManualSuccess(true);
+    } catch {
+      setApiError("Failed to save buyer. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   return (
     <section className="space-y-6">
       <div>
-        <h2 className="text-lg font-medium">Extract a buy box</h2>
+        <h2 className="text-lg font-medium">Add a buyer</h2>
         <p className="text-sm text-gray-500">
-          Paste an investor message to extract structured purchase criteria and
-          save the buyer.
+          Add buyers by entering their criteria manually or by pasting a message
+          for AI extraction.
         </p>
       </div>
 
-      {/* API key notice */}
-      {!getStoredApiKey() && (
-        <div className="rounded-md border border-yellow-200 bg-yellow-50 p-4">
-          <p className="text-sm text-yellow-800">
-            <span className="font-medium">API key required.</span> Extraction
-            uses OpenAI to parse investor messages. Add your key in{" "}
-            <a href="/settings" className="underline font-medium">Settings</a>{" "}
-            to get started. Don't have one?{" "}
-            <a
-              href="https://platform.openai.com/api-keys"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline"
-            >
-              Get one from OpenAI
-            </a>{" "}
-            (requires a paid account, ~$5 minimum).
-          </p>
-          <p className="mt-2 text-sm text-yellow-700">
-            Meanwhile, you can{" "}
-            <a href="/match" className="underline font-medium">try the demo</a>{" "}
-            on the Match page to see how the app works without an API key.
-          </p>
-        </div>
+      {/* Mode toggle */}
+      <div className="flex gap-1 rounded-lg bg-gray-100 p-1 w-fit">
+        <button
+          onClick={() => { setMode("manual"); setApiError(null); setManualSuccess(false); }}
+          className={`rounded-md px-4 py-2 text-sm font-medium transition ${
+            mode === "manual"
+              ? "bg-white text-gray-900 shadow-sm"
+              : "text-gray-600 hover:text-gray-900"
+          }`}
+        >
+          Manual Entry
+        </button>
+        <button
+          onClick={() => { setMode("ai"); setApiError(null); setManualSuccess(false); }}
+          className={`rounded-md px-4 py-2 text-sm font-medium transition ${
+            mode === "ai"
+              ? "bg-white text-gray-900 shadow-sm"
+              : "text-gray-600 hover:text-gray-900"
+          }`}
+        >
+          AI Extract
+        </button>
+      </div>
+
+      {/* Manual Entry Mode */}
+      {mode === "manual" && (
+        <>
+          <ManualBuyerForm onSubmit={handleManualSubmit} submitting={isSubmitting} />
+          {manualSuccess && (
+            <div role="status" className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+              Buyer saved. They'll appear in match results when you submit a property.
+            </div>
+          )}
+        </>
       )}
 
-      <form className="space-y-4" onSubmit={handleSubmit} noValidate>
+      {/* AI Extract Mode */}
+      {mode === "ai" && (
+        <>
+          {/* API key notice */}
+          {!getStoredApiKey() && (
+            <div className="rounded-md border border-yellow-200 bg-yellow-50 p-4">
+              <p className="text-sm text-yellow-800">
+                <span className="font-medium">API key required.</span> AI extraction
+                uses OpenAI to parse investor messages. Add your key in{" "}
+                <a href="/settings" className="underline font-medium">Settings</a>.
+              </p>
+            </div>
+          )}
+
+          <form className="space-y-4" onSubmit={handleSubmit} noValidate>
         <div>
           <label
             htmlFor="message"
@@ -223,16 +265,6 @@ export default function ExtractPage() {
         </div>
       </form>
 
-      {/* Req 12.7: parse / generic failure message. */}
-      {apiError && (
-        <div
-          role="alert"
-          className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700"
-        >
-          {apiError}
-        </div>
-      )}
-
       {/* Req 12.3 + 12.6: chips and save confirmation on success. */}
       {result && (
         <div className="space-y-3">
@@ -248,6 +280,18 @@ export default function ExtractPage() {
             </h3>
             <BuyBoxCard buyBox={result.buy_box} />
           </div>
+        </div>
+      )}
+        </>
+      )}
+
+      {/* Shared error display */}
+      {apiError && (
+        <div
+          role="alert"
+          className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+        >
+          {apiError}
         </div>
       )}
     </section>

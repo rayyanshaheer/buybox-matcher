@@ -30,6 +30,7 @@ from api.models import (
     BuyBoxModel,
     ExtractRequest,
     ExtractResponse,
+    ManualBuyerRequest,
     MatchItem,
     MatchReasons,
     MatchResponse,
@@ -342,6 +343,33 @@ def list_buyers() -> list[dict]:
         }
         for buyer in buyers
     ]
+
+
+@app.post("/buyers/manual", status_code=201)
+def create_buyer_manual(body: ManualBuyerRequest) -> dict:
+    """Create a buyer with manually-entered buy box criteria (no AI).
+
+    Accepts structured buy box fields directly, persists the buyer + buy_box,
+    and returns ``{buyer_id, buy_box}``. No API key needed.
+    """
+    buy_box_data = {
+        "markets": body.markets,
+        "strategy": body.strategy,
+        "property_type": body.property_type,
+        "price_min": body.price_min,
+        "price_max": body.price_max,
+        "arv_pct_max": body.arv_pct_max,
+        "min_beds": body.min_beds,
+        "min_baths": body.min_baths,
+        "condition": body.condition,
+        "raw_text": "(manual entry)",
+    }
+    result = db.insert_buyer_with_buy_box(
+        name=body.name,
+        company=body.company,
+        buy_box=buy_box_data,
+    )
+    return {"buyer_id": result["buyer_id"], "buy_box": buy_box_data}
 
 
 # --------------------------------------------------------------------------- #

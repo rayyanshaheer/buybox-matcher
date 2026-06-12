@@ -75,6 +75,32 @@ class BuyBoxModel(BaseModel):
         return self
 
 
+class ManualBuyerRequest(BaseModel):
+    """Body for ``POST /buyers/manual`` — manual buyer entry without AI."""
+
+    name: str = Field(min_length=1, max_length=200)
+    company: str | None = Field(default=None, max_length=200)
+    markets: list[str] = Field(default_factory=list)
+    strategy: Strategy | None = None
+    property_type: PropertyType | None = None
+    price_min: int | None = None
+    price_max: int | None = None
+    arv_pct_max: int | None = Field(default=None, ge=0, le=100)
+    min_beds: int | None = None
+    min_baths: float | None = None
+    condition: Condition | None = None
+
+    @model_validator(mode="after")
+    def price_range_valid(self) -> "ManualBuyerRequest":
+        if (
+            self.price_min is not None
+            and self.price_max is not None
+            and self.price_min > self.price_max
+        ):
+            raise ValueError("price_min must be <= price_max")
+        return self
+
+
 class ExtractResponse(BaseModel):
     """Response for a successful extraction + save (Req 1.11, 10.1)."""
 

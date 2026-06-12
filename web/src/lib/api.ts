@@ -210,6 +210,30 @@ export function listBuyers(timeoutMs?: number): Promise<BuyerListItem[]> {
   return request<BuyerListItem[]>("/buyers", { timeoutMs });
 }
 
+/** `POST /buyers/manual` — create a buyer with manually-entered criteria. */
+export function createBuyerManual(
+  payload: {
+    name: string;
+    company?: string | null;
+    markets: string[];
+    strategy?: string | null;
+    property_type?: string | null;
+    price_min?: number | null;
+    price_max?: number | null;
+    arv_pct_max?: number | null;
+    min_beds?: number | null;
+    min_baths?: number | null;
+    condition?: string | null;
+  },
+  timeoutMs?: number,
+): Promise<{ buyer_id: string; buy_box: unknown }> {
+  return request<{ buyer_id: string; buy_box: unknown }>("/buyers/manual", {
+    method: "POST",
+    body: payload,
+    timeoutMs,
+  });
+}
+
 /** `POST /match` — score a property against every saved buyer. */
 export function matchProperty(
   property: PropertyInput,
