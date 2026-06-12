@@ -138,3 +138,54 @@ def test_property_14_pipeline_matches_composed_helpers(
         filter_by_min_score(sort_matches(matches), min_score), limit
     )
     assert order_and_limit(matches, min_score, limit) == composed
+
+
+# ===========================================================================
+# Feature: buybox-matcher, Property 13: Match ordering
+# ===========================================================================
+# Validates: Requirements 7.3
+#
+# Req 7.3: the Match_Service returns matches sorted by `score` descending, and
+#          for matches with equal `score` orders them by `buyer_id` ascending.
+#
+# The property checks the ordering produced by ``sort_matches`` /
+# ``order_and_limit`` directly, without leaning on the reference pipeline used
+# by the Property 14 tests. It independently verifies that the ordering is:
+#   * a total, deterministic (score desc, buyer_id asc) order — every adjacent
+#     pair is non-increasing in score, and on a score tie the earlier item has
+#     the strictly smaller buyer_id; and
+#   * a faithful rearrangement of the input (same multiset of items, nothing
+#     dropped, added, or mutated), i.e. the sort is total and stable over the
+#     whole set.
+@settings(max_examples=200)
+@given(matches=match_lists())
+def test_property_13_match_ordering(matches):
+    original = list(matches)
+    result = sort_matches(matches)
+
+    # Independent pairwise ordering check: score descending, and on ties
+    # buyer_id strictly ascending (buyer_ids are unique within a match set).
+    for earlier, later in zip(result, result[1:]):
+        s_earlier, s_later = get_score(earlier), get_score(later)
+        assert s_earlier >= s_later, "score must be non-increasing"
+        if s_earlier == s_later:
+            assert get_buyer_id(earlier) < get_buyer_id(later), (
+                "ties must break on buyer_id ascending"
+            )
+
+    # Totality: the result is a rearrangement of the input — every input item
+    # appears exactly once, nothing is dropped or invented.
+    assert len(result) == len(matches)
+    key = lambda m: (get_buyer_id(m), get_score(m))
+    assert sorted((key(m) for m in result)) == sorted(key(m) for m in matches)
+
+    # Purity: the helper must not mutate its input sequence.
+    assert matches == original
+
+
+@settings(max_examples=200)
+@given(matches=match_lists())
+def test_property_13_order_and_limit_orders_unfiltered(matches):
+    """With no ``min_score``/``limit``, ``order_and_limit`` yields the same
+    total (score desc, buyer_id asc) ordering as ``sort_matches`` (Req 7.3)."""
+    assert order_and_limit(matches) == sort_matches(matches)

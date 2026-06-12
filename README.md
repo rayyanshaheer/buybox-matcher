@@ -93,37 +93,102 @@ buybox-matcher/
 
 ## Getting started
 
-> Scaffolding (api/ and web/) is added in the build phase. This section
-> documents the intended setup.
+All commands below are run from the repository root unless noted otherwise.
 
 ### Prerequisites
 - Node 20+
 - Python 3.11+
-- A Supabase project
+- A Supabase project (or any Postgres database)
 - An OpenAI or Anthropic API key
 
-### Backend
-```bash
-cd api
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env   # fill in SUPABASE_URL, SUPABASE_KEY, AI_API_KEY
-uvicorn main:app --reload
-```
+### Secret-handling boundary
 
-### Frontend
-```bash
-cd web
-npm install
-cp .env.example .env   # fill in VITE_API_URL
-npm run dev
-```
+Keys live on the **backend only**. The AI provider keys (`OPENAI_API_KEY` /
+`ANTHROPIC_API_KEY`) and the database credentials (`SUPABASE_URL`,
+`SUPABASE_KEY`) are read exclusively from the API's environment and are never
+exposed to the browser. The frontend's only configured external reference is
+`VITE_API_URL` — it holds no provider or database secrets (Req 14.2, 14.3).
+Copy each `.env.example` to a local `.env` and never commit the populated file.
+
+### Backend setup
+
+1. Create and activate a virtual environment, then install dependencies:
+
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate        # Windows: .venv\Scripts\activate
+   pip install -r api/requirements.txt
+   ```
+
+2. Configure the environment. Copy the example file and fill in real values
+   (`AI_PROVIDER`, the matching provider key, `SUPABASE_URL`, `SUPABASE_KEY`,
+   and `ALLOWED_ORIGIN`):
+
+   ```bash
+   cp api/.env.example api/.env
+   ```
+
+3. Apply the database schema. Run the migration `api/migrations/0001_init.sql`
+   against your database. The simplest path is to paste its contents into the
+   Supabase SQL editor (SQL → New query) and run it there.
+
+   To apply it from the command line with `psql`, use your Postgres connection
+   string — found in the Supabase dashboard under **Project Settings →
+   Database → Connection string**. Note this is the `postgresql://...`
+   connection string, which is different from `SUPABASE_URL` (the HTTPS REST
+   endpoint used by the app):
+
+   ```bash
+   psql "postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres" \
+     -f api/migrations/0001_init.sql
+   ```
+
+4. Run the API (the app is `api.main:app`):
+
+   ```bash
+   uvicorn api.main:app --reload
+   ```
+
+   The API serves at `http://localhost:8000` by default; check
+   `GET /health` for a liveness probe.
 
 ### Seed data
+
+Populate the database with synthetic buyers so the Match flow works on first
+run. The seed script inserts **140-160 synthetic buyers**, each with one buy
+box, covering every strategy and property type (Req 11.1). It is idempotent —
+reruns do not create duplicates:
+
 ```bash
-cd api
-python scripts/seed.py   # inserts ~150 synthetic buyers so Match works instantly
+python -m api.scripts.seed
 ```
+
+### Frontend setup
+
+1. Configure the environment. Copy the example file and set `VITE_API_URL` to
+   point at the running backend (e.g. `http://localhost:8000`):
+
+   ```bash
+   cp web/.env.example web/.env
+   ```
+
+2. Install dependencies and run the dev server:
+
+   ```bash
+   cd web
+   npm install
+   npm run dev
+   ```
+
+   The dev server runs at `http://localhost:5173` by default. Make sure this
+   origin matches the backend's `ALLOWED_ORIGIN`.
+
+3. Production build and tests:
+
+   ```bash
+   npm run build     # type-check + production bundle
+   npm test          # Vitest unit + property tests
+   ```
 
 ---
 
