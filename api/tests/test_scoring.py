@@ -762,3 +762,47 @@ def test_property_6_market_match_scoring(prop, bb):
         assert component.reason in result.reasons.fit
     else:
         assert component.reason in result.reasons.risk
+
+
+# Feature: buybox-matcher, Property 7: Property-type match scoring (case-insensitive, trimmed)
+# Validates: Requirements 2.7, 2.8
+#
+# The Property_Type component (weight 10) compares the Property `property_type`
+# against the Buy_Box `property_type` using a trimmed, case-folded comparison.
+# This property pins the biconditional: the component awards its full weight
+# (10) with a property-type FIT reason if and only if the Buy_Box
+# `property_type` is non-null AND its normalized value equals the normalized
+# Property `property_type`; otherwise it awards 0 with a property-type RISK
+# reason. A null or out-of-vocab Buy_Box `property_type` never matches. The
+# expected equality is computed independently here (mirroring the
+# trim+casefold normalization) so the test does not merely echo the engine.
+@settings(max_examples=200)
+@given(prop=valid_scoring_properties(), bb=valid_scoring_buy_boxes())
+def test_property_7_property_type_match_scoring(prop, bb):
+    cfg = SCORING_CONFIG
+    component = _score_property_type(prop, bb, cfg)
+
+    # Independent expectation: trimmed, case-folded equality, with a null
+    # Buy_Box property_type treated as a non-match.
+    prop_type_norm = prop.property_type.strip().casefold()
+    expected_match = (
+        bb.property_type is not None
+        and prop_type_norm == bb.property_type.strip().casefold()
+    )
+
+    if expected_match:
+        # Awards the full Property_Type weight (10) as a fit.
+        assert component.points == cfg.weight_property_type
+        assert component.is_fit is True
+    else:
+        # Awards 0 as a risk (null/out-of-vocab/mismatched type).
+        assert component.points == 0
+        assert component.is_fit is False
+    assert component.reason.strip() != ""
+
+    # The fit/risk reason placement is consistent with the full score() output.
+    result = score(prop, bb, cfg)
+    if expected_match:
+        assert component.reason in result.reasons.fit
+    else:
+        assert component.reason in result.reasons.risk
