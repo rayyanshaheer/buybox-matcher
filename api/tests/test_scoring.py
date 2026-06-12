@@ -982,3 +982,114 @@ def test_property_9_price_band_transitions_both_bounds(scenario):
     assert component.is_fit is expected_is_fit
     assert component.points in (0, cfg.price_partial_points, cfg.weight_price)
     assert component.reason.strip() != ""
+
+
+# Feature: buybox-matcher, Property 10: ARV% scoring and computation
+# Validates: Requirements 5.1, 5.2, 5.3, 5.4, 5.5, 5.6
+#
+# The ARV% component (weight 15) scores Deal_ARV_Pct against the buyer's
+# `arv_pct_max` ceiling, with partial credit for deals slightly above it:
+#   * `arv` null or 0 (or a null price) -> Deal_ARV_Pct is NOT computed, 0
+#     points + ARV risk reason (5.2).
+#   * Buy_Box `arv_pct_max` null -> 0 points + ARV risk reason (5.3).
+#   * otherwise Deal_ARV_Pct = round_half_up(price / arv * 100, 2) (5.1), then:
+#       - Deal_ARV_Pct <= ceiling            -> 15 fit                  (5.4)
+#       - ceiling < pct <= ceiling + 5.00pp  -> 7 partial + risk        (5.5)
+#       - pct > ceiling + 5.00pp             -> 0 + risk                (5.6)
+# This property independently recomputes Deal_ARV_Pct (reusing `round_half_up`)
+# and the expected band — mirroring the engine's null/zero guards, ceiling
+# guard, and +5.00pp near-band arithmetic — so the test is an oracle rather
+# than an echo, then verifies the awarded points, fit flag, and that the
+# component's reason lands in the matching fit/risk list of the full score()
+# output.
+def _expected_arv_band(
+    price: int | None,
+    arv: int | None,
+    arv_pct_max: int | None,
+    cfg=SCORING_CONFIG,
+) -> tuple[int, bool]:
+    """Independent oracle: (expected_points, expected_is_fit) for the ARV band.
+
+    Mirrors Req 5.1-5.6 without calling the engine's own ARV scorer.
+    """
+    # 5.2 — missing/zero ARV (or a null price) is not evaluable.
+    if arv is None or arv == 0 or price is None:
+        return (0, False)
+    # 5.3 — no ceiling defined.
+    if arv_pct_max is None:
+        return (0, False)
+
+    # 5.1 — compute Deal_ARV_Pct (round half up to configured decimals).
+    deal_pct = round_half_up(price / arv * 100, cfg.arv_round_decimals)
+
+    # 5.4 — at or under the ceiling.
+    if deal_pct <= arv_pct_max:
+        return (cfg.weight_arv, True)
+    # 5.5 — slightly above (within the +5.00pp near band).
+    if deal_pct <= arv_pct_max + cfg.arv_near_band_pp:
+        return (cfg.arv_partial_points, False)
+    # 5.6 — well above the ceiling.
+    return (0, False)
+
+
+@settings(max_examples=200)
+@given(prop=valid_scoring_properties(), bb=valid_scoring_buy_boxes())
+def test_property_10_arv_scoring(prop, bb):
+    cfg = SCORING_CONFIG
+    component = _score_arv(prop, bb, cfg)
+
+    expected_points, expected_is_fit = _expected_arv_band(
+        prop.price, prop.arv, bb.arv_pct_max, cfg
+    )
+
+    # Awarded points and fit flag match the independent band oracle (15/7/0).
+    assert component.points == expected_points
+    assert component.is_fit is expected_is_fit
+    # The awarded points are always one of the three configured bands.
+    assert component.points in (0, cfg.arv_partial_points, cfg.weight_arv)
+    # Exactly one corresponding reason, and it is non-empty.
+    assert component.reason.strip() != ""
+
+    # The fit/risk reason placement is consistent with the full score() output.
+    result = score(prop, bb, cfg)
+    if expected_is_fit:
+        assert component.reason in result.reasons.fit
+    else:
+        assert component.reason in result.reasons.risk
+
+
+@settings(max_examples=200)
+@given(scenario=arv_scenarios())
+def test_property_10_arv_band_transitions(scenario):
+    """Densely exercise the 15/7/0 ARV bands around the +5.00pp near-band.
+
+    `arv_scenarios()` samples (price, arv, ceiling) triples whose Deal_ARV_Pct
+    straddles the ceiling (under, within +5.00pp, and well above), giving dense
+    coverage of the Req 5.4-5.6 transitions that random buy boxes hit only
+    sparsely. Each scenario has a present, non-zero `arv` and a defined ceiling,
+    so the compute path of 5.1 is always taken.
+    """
+    cfg = SCORING_CONFIG
+    price, arv, ceiling = scenario
+    prop = make_property(price=price, arv=arv)
+    bb = make_buy_box(arv_pct_max=ceiling)
+
+    component = _score_arv(prop, bb, cfg)
+    expected_points, expected_is_fit = _expected_arv_band(
+        price, arv, ceiling, cfg
+    )
+
+    assert component.points == expected_points
+    assert component.is_fit is expected_is_fit
+    assert component.points in (0, cfg.arv_partial_points, cfg.weight_arv)
+    assert component.reason.strip() != ""
+
+    # Deal_ARV_Pct is computed (arv present/non-zero, ceiling defined): the
+    # awarded band must agree with the independently recomputed percentage.
+    deal_pct = round_half_up(price / arv * 100, cfg.arv_round_decimals)
+    if deal_pct <= ceiling:
+        assert component.points == cfg.weight_arv
+    elif deal_pct <= ceiling + cfg.arv_near_band_pp:
+        assert component.points == cfg.arv_partial_points
+    else:
+        assert component.points == 0
