@@ -72,6 +72,8 @@ interface RequestOptions {
   query?: Record<string, string | number | null | undefined>;
   /** Per-request timeout override in milliseconds. */
   timeoutMs?: number;
+  /** Additional headers to include in the request. */
+  extraHeaders?: Record<string, string>;
 }
 
 function buildUrl(
@@ -97,17 +99,24 @@ function buildUrl(
  */
 async function request<T>(
   path: string,
-  { method = "GET", body, query, timeoutMs = DEFAULT_TIMEOUT_MS }: RequestOptions = {},
+  { method = "GET", body, query, timeoutMs = DEFAULT_TIMEOUT_MS, extraHeaders }: RequestOptions = {},
 ): Promise<T> {
   const url = buildUrl(path, query);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
+  const headers: Record<string, string> = {
+    ...extraHeaders,
+  };
+  if (body !== undefined) {
+    headers["Content-Type"] = "application/json";
+  }
+
   let response: Response;
   try {
     response = await fetch(url, {
       method,
-      headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
+      headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
       signal: controller.signal,
     });
@@ -145,6 +154,37 @@ async function request<T>(
   return payload as T;
 }
 
+// --- API Key Management (BYOK) -------------------------------------------
+
+const API_KEY_STORAGE_KEY = "buybox_openai_key";
+
+/** Get the user's stored OpenAI API key from localStorage. */
+export function getStoredApiKey(): string | null {
+  try {
+    return localStorage.getItem(API_KEY_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** Save the user's OpenAI API key to localStorage. */
+export function setStoredApiKey(key: string): void {
+  try {
+    localStorage.setItem(API_KEY_STORAGE_KEY, key);
+  } catch {
+    // Silent fail in environments without localStorage.
+  }
+}
+
+/** Remove the user's stored OpenAI API key. */
+export function clearStoredApiKey(): void {
+  try {
+    localStorage.removeItem(API_KEY_STORAGE_KEY);
+  } catch {
+    // Silent fail.
+  }
+}
+
 // --- Endpoint wrappers ----------------------------------------------------
 
 /** `POST /buy-boxes/extract` — extract a buy box and save a buyer. */
@@ -152,10 +192,16 @@ export function extractBuyBox(
   payload: ExtractRequest,
   timeoutMs?: number,
 ): Promise<ExtractResponse> {
+  const extraHeaders: Record<string, string> = {};
+  const apiKey = getStoredApiKey();
+  if (apiKey) {
+    extraHeaders["X-OpenAI-Key"] = apiKey;
+  }
   return request<ExtractResponse>("/buy-boxes/extract", {
     method: "POST",
     body: payload,
     timeoutMs,
+    extraHeaders,
   });
 }
 

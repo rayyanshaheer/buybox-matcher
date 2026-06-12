@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from fastapi import Body, Depends, FastAPI, HTTPException, Query
+from fastapi import Body, Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from api import db
@@ -278,6 +278,7 @@ def extract(
     body: ExtractRequest,
     provider: ProviderCallable | None = Depends(get_extraction_provider),
     timeout: float = Depends(get_extraction_timeout),
+    x_openai_key: str | None = Header(default=None),
 ) -> ExtractResponse:
     """Extract a Buy_Box from free text and persist the buyer (Req 1.1-1.11, 10.1).
 
@@ -286,14 +287,30 @@ def extract(
     *before* this handler runs, so the AI provider is never invoked and nothing
     is persisted (Req 1.8).
 
+    Supports BYOK (Bring Your Own Key): if the ``X-OpenAI-Key`` header is
+    present, it overrides the server-side AI key for this request only.
+
     On a valid body the extraction pipeline runs; any failure raises
     :class:`ExtractionError`, which maps to 422 (unparseable / validation) or an
     upstream error status (provider / timeout) with nothing persisted
     (Req 1.7, 1.9, 1.10, 10.2). On success the buyer + buy_box are persisted 1:1
     and the route returns 201 ``{buyer_id, buy_box}`` (Req 1.11).
     """
+    # Build a provider using the user-supplied key if present.
+    effective_provider = provider
+    if effective_provider is None and x_openai_key:
+        from api.extract import build_provider as _build_provider
+
+        try:
+            built = _build_provider(user_api_key=x_openai_key)
+            effective_provider = built.complete_json
+        except ExtractionError as exc:
+            raise HTTPException(status_code=401, detail=str(exc)) from exc
+
     try:
-        buy_box = extract_buy_box(body.raw_text, provider=provider, timeout=timeout)
+        buy_box = extract_buy_box(
+            body.raw_text, provider=effective_provider, timeout=timeout
+        )
     except ExtractionError as exc:
         status_code = _EXTRACTION_ERROR_STATUS.get(exc.kind, 502)
         raise HTTPException(status_code=status_code, detail=str(exc)) from exc

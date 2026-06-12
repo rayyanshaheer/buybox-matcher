@@ -1,6 +1,7 @@
 import { BrowserRouter, NavLink, Navigate, Route, Routes } from "react-router-dom";
 import ExtractPage from "./pages/ExtractPage";
 import MatchPage from "./pages/MatchPage";
+import SettingsPage from "./pages/SettingsPage";
 
 /**
  * Application shell and router.
@@ -31,6 +32,9 @@ export default function App() {
               <NavLink to="/match" className={navLinkClass}>
                 Match
               </NavLink>
+              <NavLink to="/settings" className={navLinkClass}>
+                Settings
+              </NavLink>
             </nav>
           </div>
         </header>
@@ -39,6 +43,7 @@ export default function App() {
             <Route path="/" element={<Navigate to="/match" replace />} />
             <Route path="/extract" element={<ExtractPage />} />
             <Route path="/match" element={<MatchPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/match" replace />} />
           </Routes>
         </main>

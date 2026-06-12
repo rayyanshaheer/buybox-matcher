@@ -223,17 +223,27 @@ class AnthropicProvider:
         return "".join(parts)
 
 
-def build_provider(settings: Settings | None = None) -> Provider:
+def build_provider(
+    settings: Settings | None = None,
+    *,
+    user_api_key: str | None = None,
+) -> Provider:
     """Construct the provider selected by ``AI_PROVIDER`` (design "Provider Selection").
 
     Reads configuration via :func:`api.config.load_settings` when ``settings``
     is not supplied. Raises :class:`ExtractionError` when the provider is
     unconfigured/unsupported or its API key is missing — extraction cannot run
     without a usable provider.
+
+    When ``user_api_key`` is provided (BYOK mode), it overrides the server-side
+    key for this single call. The provider selection (openai/anthropic) still
+    comes from the server config or defaults to "openai" if unset.
     """
     resolved = settings if settings is not None else load_settings()
-    provider = (resolved.ai_provider or "").strip().lower()
-    api_key = resolved.provider_api_key
+    provider = (resolved.ai_provider or "openai").strip().lower()
+
+    # Use the user-supplied key if provided, otherwise fall back to server key.
+    api_key = user_api_key if user_api_key else resolved.provider_api_key
 
     if provider not in ("openai", "anthropic"):
         raise ExtractionError(
@@ -242,7 +252,8 @@ def build_provider(settings: Settings | None = None) -> Provider:
         )
     if not (api_key or "").strip():
         raise ExtractionError(
-            "The API key for the configured AI provider is missing."
+            "No API key available. Please provide your OpenAI API key in Settings.",
+            kind="provider",
         )
 
     if provider == "openai":

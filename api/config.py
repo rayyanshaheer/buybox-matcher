@@ -102,10 +102,10 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
 def validate_config(settings: Settings | None = None) -> Settings:
     """Validate required backend credentials, halting AI-dependent startup.
 
-    Required credentials (Req 14.4): ``AI_PROVIDER``, the selected provider's
-    API key (``OPENAI_API_KEY`` or ``ANTHROPIC_API_KEY``), ``SUPABASE_URL``,
-    and ``SUPABASE_KEY``. ``ALLOWED_ORIGIN`` is read but not required for
-    AI-dependent startup.
+    Required credentials (Req 14.4): ``SUPABASE_URL`` and ``SUPABASE_KEY``.
+    ``AI_PROVIDER`` and the selected provider's API key are optional when
+    operating in BYOK mode (users supply their own key per request).
+    ``ALLOWED_ORIGIN`` is read but not required for startup.
 
     Returns the validated :class:`Settings` on success. Raises
     :class:`ConfigError` naming the missing/invalid variable(s) — never their
@@ -119,20 +119,12 @@ def validate_config(settings: Settings | None = None) -> Settings:
     missing: list[str] = []
 
     provider = (settings.ai_provider or "").strip().lower()
-    if is_blank(settings.ai_provider):
-        # Without a provider we cannot know which key to require; report only
-        # the provider selector as missing.
-        missing.append("AI_PROVIDER")
-    elif provider not in VALID_AI_PROVIDERS:
+    if not is_blank(settings.ai_provider) and provider not in VALID_AI_PROVIDERS:
         # Note: deliberately does not echo the offending value (Req 14.4).
         raise ConfigError(
             "AI_PROVIDER is set to an unsupported value; expected one of: "
             + ", ".join(VALID_AI_PROVIDERS)
         )
-    else:
-        key_var = PROVIDER_KEY_VAR[provider]
-        if is_blank(settings.provider_api_key):
-            missing.append(key_var)
 
     if is_blank(settings.supabase_url):
         missing.append("SUPABASE_URL")
