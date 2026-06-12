@@ -78,6 +78,8 @@ export default function MatchPage() {
   const [matchLoading, setMatchLoading] = useState(false);
   const [matchError, setMatchError] = useState<string | null>(null);
   const [isDemo, setIsDemo] = useState(false);
+  const [formKey, setFormKey] = useState(0);
+  const [demoValues, setDemoValues] = useState<Record<string, string> | undefined>(undefined);
 
   // Draft state keyed by buyer_id so each MatchRow gets only its own draft.
   const [drafts, setDrafts] = useState<Record<string, DraftState>>({});
@@ -89,6 +91,17 @@ export default function MatchPage() {
   function handleDemo() {
     setMatchError(null);
     setIsDemo(true);
+    setDemoValues({
+      address: "742 Palm Ave",
+      city: "Tampa",
+      price: "220000",
+      arv: "310000",
+      beds: "3",
+      baths: "2",
+      propertyType: "single_family",
+      condition: "distressed",
+    });
+    setFormKey((k) => k + 1);
     setMatches(DEMO_MATCHES);
   }
 
@@ -179,7 +192,7 @@ export default function MatchPage() {
         </div>
       )}
 
-      <PropertyForm onSubmit={handleSubmit} submitting={submitting} />
+      <PropertyForm key={formKey} onSubmit={handleSubmit} submitting={submitting} initialValues={demoValues} />
 
       {/* Loading indicator while a match/draft request is in progress (13.10). */}
       {submitting && (

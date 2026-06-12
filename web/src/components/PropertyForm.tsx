@@ -35,6 +35,17 @@ interface PropertyFormProps {
   submitting?: boolean;
   /** Label for the submit button. Defaults to "Find Buyers". */
   submitLabel?: string;
+  /** Optional initial values to pre-fill the form (e.g. for demo mode). */
+  initialValues?: Partial<{
+    address: string;
+    city: string;
+    price: string;
+    arv: string;
+    beds: string;
+    baths: string;
+    propertyType: PropertyType | "";
+    condition: Condition | "";
+  }>;
 }
 
 const PROPERTY_TYPES: PropertyType[] = [
@@ -75,15 +86,16 @@ export default function PropertyForm({
   onSubmit,
   submitting = false,
   submitLabel = "Find Buyers",
+  initialValues,
 }: PropertyFormProps) {
-  const [address, setAddress] = useState("");
-  const [city, setCity] = useState("");
-  const [price, setPrice] = useState("");
-  const [arv, setArv] = useState("");
-  const [beds, setBeds] = useState("");
-  const [baths, setBaths] = useState("");
-  const [propertyType, setPropertyType] = useState<PropertyType | "">("");
-  const [condition, setCondition] = useState<Condition | "">("");
+  const [address, setAddress] = useState(initialValues?.address ?? "");
+  const [city, setCity] = useState(initialValues?.city ?? "");
+  const [price, setPrice] = useState(initialValues?.price ?? "");
+  const [arv, setArv] = useState(initialValues?.arv ?? "");
+  const [beds, setBeds] = useState(initialValues?.beds ?? "");
+  const [baths, setBaths] = useState(initialValues?.baths ?? "");
+  const [propertyType, setPropertyType] = useState<PropertyType | "">(initialValues?.propertyType ?? "");
+  const [condition, setCondition] = useState<Condition | "">(initialValues?.condition ?? "");
   const [arvError, setArvError] = useState<string | null>(null);
 
   const priceValue = parseNumeric(price);
