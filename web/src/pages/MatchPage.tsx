@@ -40,12 +40,44 @@ interface DraftState {
   error: string | null;
 }
 
+/** Demo data: sample matches returned without hitting the backend. */
+const DEMO_MATCHES: MatchItem[] = [
+  {
+    buyer_id: "demo-1",
+    name: "Sarah Johnson",
+    score: 92,
+    reasons: {
+      fit: ["Market match: Tampa", "Strategy match: fix_and_flip", "Price within range", "Property type match"],
+      risk: ["ARV% slightly above threshold"],
+    },
+  },
+  {
+    buyer_id: "demo-2",
+    name: "Mike Chen",
+    score: 78,
+    reasons: {
+      fit: ["Market match: Tampa", "Price within range", "Beds/baths meet minimum"],
+      risk: ["Strategy mismatch: buyer prefers buy_and_hold", "Condition mismatch"],
+    },
+  },
+  {
+    buyer_id: "demo-3",
+    name: "Rodriguez Capital LLC",
+    score: 65,
+    reasons: {
+      fit: ["Market match: Tampa", "Property type match"],
+      risk: ["Price above buyer max", "ARV% exceeds ceiling"],
+    },
+  },
+];
+
 export default function MatchPage() {
   // `null` => the form has not been submitted yet; an array => last successful
   // response (possibly empty, which triggers the empty-results message).
   const [matches, setMatches] = useState<MatchItem[] | null>(null);
   const [matchLoading, setMatchLoading] = useState(false);
   const [matchError, setMatchError] = useState<string | null>(null);
+  const [isDemo, setIsDemo] = useState(false);
 
   // Draft state keyed by buyer_id so each MatchRow gets only its own draft.
   const [drafts, setDrafts] = useState<Record<string, DraftState>>({});
@@ -54,9 +86,16 @@ export default function MatchPage() {
   const anyDraftLoading = Object.values(drafts).some((d) => d.loading);
   const submitting = matchLoading || anyDraftLoading;
 
+  function handleDemo() {
+    setMatchError(null);
+    setIsDemo(true);
+    setMatches(DEMO_MATCHES);
+  }
+
   async function handleSubmit(property: PropertyInput) {
     setMatchLoading(true);
     setMatchError(null);
+    setIsDemo(false);
     try {
       const response = await matchProperty(property);
       // Order rows by descending score (13.4); sort defensively rather than
@@ -74,6 +113,25 @@ export default function MatchPage() {
   }
 
   async function handleRequestDraft(buyerId: string) {
+    // In demo mode, return a fake draft instead of hitting the backend.
+    if (isDemo) {
+      setDrafts((prev) => ({
+        ...prev,
+        [buyerId]: { loading: true, text: null, error: null },
+      }));
+      setTimeout(() => {
+        setDrafts((prev) => ({
+          ...prev,
+          [buyerId]: {
+            loading: false,
+            text: "Hey! I've got a property in Tampa that fits your buy box — distressed SFH, 3/2, listed at $220k. ARV is around $310k. Want me to send over the details?",
+            error: null,
+          },
+        }));
+      }, 800);
+      return;
+    }
+
     setDrafts((prev) => ({
       ...prev,
       [buyerId]: { loading: true, text: null, error: null },
@@ -105,6 +163,22 @@ export default function MatchPage() {
         </p>
       </div>
 
+      {/* Demo banner for users without data */}
+      {matches === null && !matchLoading && (
+        <div className="rounded-md border border-blue-200 bg-blue-50 p-4">
+          <p className="text-sm text-blue-800">
+            <span className="font-medium">New here?</span> Try the demo to see
+            how matching works — no API key or saved buyers needed.
+          </p>
+          <button
+            onClick={handleDemo}
+            className="mt-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            Try Demo
+          </button>
+        </div>
+      )}
+
       <PropertyForm onSubmit={handleSubmit} submitting={submitting} />
 
       {/* Loading indicator while a match/draft request is in progress (13.10). */}
@@ -131,6 +205,15 @@ export default function MatchPage() {
       {/* Ranked matches, descending by score (13.4). */}
       {matches !== null && matches.length > 0 && (
         <div className="flex flex-col gap-3">
+          {isDemo && (
+            <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+              <span className="font-medium">Demo mode</span> — these are sample
+              results. To use real data, add buyers via the{" "}
+              <a href="/extract" className="underline">Extract</a> tab (requires
+              an OpenAI key in{" "}
+              <a href="/settings" className="underline">Settings</a>).
+            </div>
+          )}
           {matches.map((match) => {
             const draft = drafts[match.buyer_id];
             return (

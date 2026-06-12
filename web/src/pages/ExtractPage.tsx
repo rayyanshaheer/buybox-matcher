@@ -21,7 +21,7 @@
  * holds no secrets and references no external URL of its own (Req 14.2).
  */
 import { useState } from "react";
-import { ApiError, extractBuyBox } from "../lib/api";
+import { ApiError, extractBuyBox, getStoredApiKey } from "../lib/api";
 import BuyBoxCard from "../components/BuyBoxCard";
 import type { ExtractResponse } from "../types";
 
@@ -99,6 +99,32 @@ export default function ExtractPage() {
           save the buyer.
         </p>
       </div>
+
+      {/* API key notice */}
+      {!getStoredApiKey() && (
+        <div className="rounded-md border border-yellow-200 bg-yellow-50 p-4">
+          <p className="text-sm text-yellow-800">
+            <span className="font-medium">API key required.</span> Extraction
+            uses OpenAI to parse investor messages. Add your key in{" "}
+            <a href="/settings" className="underline font-medium">Settings</a>{" "}
+            to get started. Don't have one?{" "}
+            <a
+              href="https://platform.openai.com/api-keys"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline"
+            >
+              Get one from OpenAI
+            </a>{" "}
+            (requires a paid account, ~$5 minimum).
+          </p>
+          <p className="mt-2 text-sm text-yellow-700">
+            Meanwhile, you can{" "}
+            <a href="/match" className="underline font-medium">try the demo</a>{" "}
+            on the Match page to see how the app works without an API key.
+          </p>
+        </div>
+      )}
 
       <form className="space-y-4" onSubmit={handleSubmit} noValidate>
         <div>
