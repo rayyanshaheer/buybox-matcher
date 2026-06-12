@@ -195,7 +195,7 @@ class ScoringConfig:
 
     # Strategy mapping and the wholesale-fits-any rule (Req 3.1-3.4).
     strategy_by_condition: Mapping[str, tuple[str, ...]] = field(
-        default=_STRATEGY_BY_CONDITION
+        default_factory=lambda: _STRATEGY_BY_CONDITION
     )
     wholesale_fits_any: bool = True
 
