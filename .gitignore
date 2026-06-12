@@ -1,23 +1,82 @@
-# env
+# ---------------------------------------------------------------------------
+# Environment & secrets
+# ---------------------------------------------------------------------------
 .env
 .env.*
 !.env.example
+*.pem
+*.key
 
-# python
+# ---------------------------------------------------------------------------
+# Python (FastAPI backend)
+# ---------------------------------------------------------------------------
 __pycache__/
 *.py[cod]
+*$py.class
+*.egg
+*.egg-info/
+.eggs/
+build/
+dist/
+wheels/
+.installed.cfg
+
+# Virtual environments
 .venv/
 venv/
-.pytest_cache/
+env/
+ENV/
 
-# node
+# Test & type-checker caches
+.pytest_cache/
+.hypothesis/
+.mypy_cache/
+.ruff_cache/
+.dmypy.json
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+.tox/
+.nox/
+
+# ---------------------------------------------------------------------------
+# Node / Vite / React (frontend)
+# ---------------------------------------------------------------------------
 node_modules/
 dist/
+dist-ssr/
 build/
 .vite/
+*.local
 
-# os / editor
-.DS_Store
+# TypeScript incremental build info
+*.tsbuildinfo
+
+# Logs
+logs/
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ---------------------------------------------------------------------------
+# Supabase
+# ---------------------------------------------------------------------------
+.supabase/
+
+# ---------------------------------------------------------------------------
+# OS / editor
+# ---------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
 .idea/
 .vscode/
+!.vscode/extensions.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
