@@ -680,3 +680,24 @@ def test_property_3_score_is_integer_within_0_100(prop, bb):
     result = score(prop, bb)
     assert isinstance(result.score, int)
     assert 0 <= result.score <= 100
+
+
+# Feature: buybox-matcher, Property 4: Exactly one reason per component
+# Validates: Requirements 2.4
+#
+# The Scoring_Engine returns `reasons` as an object holding a `fit` list and a
+# `risk` list, where every one of the six weight components (Market, Strategy,
+# Price, ARV%, Property_Type, Beds/Baths) contributes exactly one entry to
+# either `fit` or `risk` — never both, never neither. Across the generated
+# input space this means `len(fit) + len(risk) == 6` and every reason string is
+# non-empty (no blank explanations leak through).
+@settings(max_examples=200)
+@given(prop=valid_scoring_properties(), bb=valid_scoring_buy_boxes())
+def test_property_4_exactly_one_reason_per_component(prop, bb):
+    result = score(prop, bb)
+    # One reason per component -> six reasons total split across fit/risk.
+    assert len(result.reasons.fit) + len(result.reasons.risk) == 6
+    # Every reason string is non-empty (Req 2.4: non-empty strings).
+    for reason in result.reasons.fit + result.reasons.risk:
+        assert isinstance(reason, str)
+        assert reason.strip() != ""
