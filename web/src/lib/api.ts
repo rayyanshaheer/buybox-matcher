@@ -22,7 +22,7 @@ import type {
 } from "../types";
 
 /** Default request timeout in milliseconds. */
-export const DEFAULT_TIMEOUT_MS = 10_000;
+export const DEFAULT_TIMEOUT_MS = 30_000;
 
 /**
  * Normalized error raised by every client function. Callers can branch on
