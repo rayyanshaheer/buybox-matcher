@@ -1093,3 +1093,81 @@ def test_property_10_arv_band_transitions(scenario):
         assert component.points == cfg.arv_partial_points
     else:
         assert component.points == 0
+
+
+# Feature: buybox-matcher, Property 11: Beds/baths minimum scoring
+# Validates: Requirements 6.1, 6.2, 6.3
+#
+# The Beds/Baths component (weight 5) checks the Property `beds`/`baths`
+# against the Buy_Box `min_beds`/`min_baths`, considering BOTH minimums
+# together:
+#   * each minimum is null OR met (value present and >= the minimum)
+#       -> 5 fit, "meets bed/bath minimums"                              (6.1)
+#   * a minimum is non-null but the corresponding Property value is null
+#       -> 0 risk, "<bed|bath> minimum could not be verified"           (6.3)
+#   * a minimum is non-null and the Property value is present but below it
+#       -> 0 risk, "below their bed/bath minimum"                       (6.2)
+# Precedence mirrors the engine exactly: the "could not verify" cases (beds
+# checked before baths) take priority over the "below minimum" case, so when
+# one value is missing and the other is below its minimum the result is the
+# unverifiable risk. This property independently recomputes the expected
+# points, fit flag, and reason — mirroring the engine's null/missing/below
+# logic and its beds-before-baths precedence — so the test is an oracle rather
+# than an echo, then verifies the awarded points, fit flag, and that the
+# component's reason lands in the matching fit/risk list of the full score()
+# output.
+def _expected_beds_baths(
+    beds: int | None,
+    baths: float | None,
+    min_beds: int | None,
+    min_baths: float | None,
+    cfg=SCORING_CONFIG,
+) -> tuple[int, bool, str]:
+    """Independent oracle: (expected_points, expected_is_fit, expected_reason).
+
+    Mirrors Req 6.1-6.3 (and the engine's beds-before-baths precedence on the
+    "could not verify" cases) without calling the engine's own beds/baths
+    scorer.
+    """
+    beds_ok = min_beds is None or (beds is not None and beds >= min_beds)
+    baths_ok = min_baths is None or (baths is not None and baths >= min_baths)
+
+    # 6.3 — a minimum is set but the property value is missing (beds first).
+    if min_beds is not None and beds is None:
+        return (0, False, "bed minimum could not be verified")
+    if min_baths is not None and baths is None:
+        return (0, False, "bath minimum could not be verified")
+
+    # 6.1 — every applicable minimum is met.
+    if beds_ok and baths_ok:
+        return (cfg.weight_beds_baths, True, "meets bed/bath minimums")
+
+    # 6.2 — below a minimum.
+    return (0, False, "below their bed/bath minimum")
+
+
+@settings(max_examples=200)
+@given(prop=valid_scoring_properties(), bb=valid_scoring_buy_boxes())
+def test_property_11_beds_baths_scoring(prop, bb):
+    cfg = SCORING_CONFIG
+    component = _score_beds_baths(prop, bb, cfg)
+
+    expected_points, expected_is_fit, expected_reason = _expected_beds_baths(
+        prop.beds, prop.baths, bb.min_beds, bb.min_baths, cfg
+    )
+
+    # Awarded points, fit flag, and reason match the independent oracle (5/0).
+    assert component.points == expected_points
+    assert component.is_fit is expected_is_fit
+    assert component.reason == expected_reason
+    # The awarded points are always one of the two configured outcomes.
+    assert component.points in (0, cfg.weight_beds_baths)
+    # Exactly one corresponding reason, and it is non-empty.
+    assert component.reason.strip() != ""
+
+    # The fit/risk reason placement is consistent with the full score() output.
+    result = score(prop, bb, cfg)
+    if expected_is_fit:
+        assert component.reason in result.reasons.fit
+    else:
+        assert component.reason in result.reasons.risk
