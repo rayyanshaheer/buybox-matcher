@@ -13,6 +13,18 @@ criteria in → ranked, explainable matches out.
 
 ---
 
+## 🔗 Live Demo
+
+| | Link |
+|---|---|
+| **App** | [buybox-matcher.vercel.app](https://buybox-matcher.vercel.app) |
+| **API** | [buybox-matcher.onrender.com](https://buybox-matcher.onrender.com/health) |
+| **Video walkthrough** | [Loom](https://www.loom.com/share/70f5a2f479c045c3aab5c7cebe3c83c4) |
+
+> Note: The API runs on Render's free tier and sleeps after 15 min of inactivity. The first request after waking up takes ~30s.
+
+---
+
 ## What it does
 
 Two screens, one clear loop.
