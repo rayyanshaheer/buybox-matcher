@@ -52,7 +52,7 @@ The backend is FastAPI / Python 3.11+ (`api/`); the frontend is React + TypeScri
     - Sum components, apply the hard-filter cap (final = min(raw,25) when Market==0 or Property_Type==0), clamp to [0,100], emit exactly one fit/risk reason per component, and raise `ScoringInputError` (no numeric score, no mutation) when property/buy_box is null or missing `city`/`property_type`/`markets`
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 2.10, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 4.1, 4.2, 4.3, 4.4, 4.5, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 6.1, 6.2, 6.3_
 
-- [ ] 4. Scoring engine tests
+- [x] 4. Scoring engine tests
   - [x] 4.1 Write Hypothesis strategies and per-criterion + full-property unit tests
     - In `api/tests/test_scoring.py` build Hypothesis strategies that generate valid and edge-laden `PropertyInput`/`BuyBoxInput` values (null bounds, arv 0/None, null `arv_pct_max`, out-of-vocab and null enums, mixed-case/whitespace-padded strings, prices straddling the 10% band, ARV% straddling the +5.00pp band)
     - Add one representative unit test per component (market hit/miss, each strategy branch, price in/near/out, ARV under/slightly-over/well-over, type hit/miss, beds/baths met/below/unverifiable)
@@ -64,75 +64,75 @@ The backend is FastAPI / Python 3.11+ (`api/`); the frontend is React + TypeScri
     - Tag `# Feature: buybox-matcher, Property 1: Scoring determinism`; run >= 100 iterations
     - **Validates: Requirements 2.1**
 
-  - [~] 4.3 Write property test for component bounds and weight sum
+  - [x] 4.3 Write property test for component bounds and weight sum
     - **Property 2: Component scores never exceed configured weights and weights sum to 100**
     - Tag `# Feature: buybox-matcher, Property 2: ...`; run >= 100 iterations
     - **Validates: Requirements 2.2**
 
-  - [~] 4.4 Write property test for score range
+  - [x] 4.4 Write property test for score range
     - **Property 3: Score is an integer within [0, 100]**
     - Tag `# Feature: buybox-matcher, Property 3: ...`; run >= 100 iterations
     - **Validates: Requirements 2.3**
 
-  - [~] 4.5 Write property test for reason count
+  - [x] 4.5 Write property test for reason count
     - **Property 4: Exactly one reason per component** — `len(fit) + len(risk) == 6` and all reason strings non-empty
     - Tag `# Feature: buybox-matcher, Property 4: ...`; run >= 100 iterations
     - **Validates: Requirements 2.4**
 
-  - [~] 4.6 Write property test for hard-filter cap
+  - [x] 4.6 Write property test for hard-filter cap
     - **Property 5: Hard-filter cap** — when Market==0 or Property_Type==0, final score <= 25
     - Tag `# Feature: buybox-matcher, Property 5: ...`; run >= 100 iterations
     - **Validates: Requirements 2.9**
 
-  - [~] 4.7 Write property test for market match scoring
+  - [x] 4.7 Write property test for market match scoring
     - **Property 6: Market match scoring (case-insensitive, trimmed)** — 30+fit iff trimmed/case-folded city matches a market, else 0+risk
     - Tag `# Feature: buybox-matcher, Property 6: ...`; run >= 100 iterations
     - **Validates: Requirements 2.5, 2.6**
 
-  - [~] 4.8 Write property test for property-type match scoring
+  - [x] 4.8 Write property test for property-type match scoring
     - **Property 7: Property-type match scoring (case-insensitive, trimmed)** — 10+fit iff normalized types equal, else 0+risk
     - Tag `# Feature: buybox-matcher, Property 7: ...`; run >= 100 iterations
     - **Validates: Requirements 2.7, 2.8**
 
-  - [~] 4.9 Write property test for strategy-mapping scoring
+  - [x] 4.9 Write property test for strategy-mapping scoring
     - **Property 8: Strategy-mapping scoring** — 20+fit exactly for wholesale (any), distressed/light_rehab+flip/brrrr, turnkey+buy_and_hold; 0+risk otherwise including null/out-of-vocab strategy and condition
     - Tag `# Feature: buybox-matcher, Property 8: ...`; run >= 100 iterations
     - **Validates: Requirements 3.1, 3.2, 3.3, 3.4, 3.5, 3.6**
 
-  - [~] 4.10 Write property test for price-range scoring
+  - [x] 4.10 Write property test for price-range scoring
     - **Property 9: Price-range scoring with partial credit** — 20/10/0 bands for both-null, both-present, and single-bound cases with exactly one corresponding reason
     - Tag `# Feature: buybox-matcher, Property 9: ...`; run >= 100 iterations
     - **Validates: Requirements 4.1, 4.2, 4.3, 4.4, 4.5**
 
-  - [~] 4.11 Write property test for ARV% scoring and computation
+  - [x] 4.11 Write property test for ARV% scoring and computation
     - **Property 10: ARV% scoring and computation** — null/zero arv -> 0+risk (no compute); null ceiling -> 0+risk; else `round_half_up(price/arv*100,2)` with 15/7/0 bands
     - Tag `# Feature: buybox-matcher, Property 10: ...`; run >= 100 iterations
     - **Validates: Requirements 5.1, 5.2, 5.3, 5.4, 5.5, 5.6**
 
-  - [~] 4.12 Write property test for beds/baths minimum scoring
+  - [x] 4.12 Write property test for beds/baths minimum scoring
     - **Property 11: Beds/baths minimum scoring** — 5+fit when each min is null or met; 0+risk "could not verify" when min non-null and value null; 0+risk "below minimum" when value below min
     - Tag `# Feature: buybox-matcher, Property 11: ...`; run >= 100 iterations
     - **Validates: Requirements 6.1, 6.2, 6.3**
 
-  - [~] 4.13 Write property test for invalid scoring input
+  - [x] 4.13 Write property test for invalid scoring input
     - **Property 12: Invalid scoring input is rejected without mutation** — null/missing `city`/`property_type`/`markets` signals an error, produces no numeric score, leaves inputs unmodified
     - Tag `# Feature: buybox-matcher, Property 12: ...`; run >= 100 iterations
     - **Validates: Requirements 2.10**
 
-  - [~] 4.14 Checkpoint - scoring engine and property tests pass
+  - [x] 4.14 Checkpoint - scoring engine and property tests pass
     - Run the backend test suite (`pytest api/tests/test_scoring.py`) and ensure all scoring unit and property tests pass. Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 5. Match endpoint and orchestration
+- [x] 5. Match endpoint and orchestration
   - [x] 5.1 Implement Match_Service ordering and filter-then-limit helpers
     - Add pure helpers (e.g. in `api/main.py` or a `matching.py` module) that sort matches by `score` desc then `buyer_id` asc, and apply `min_score` filter strictly before `limit`
     - _Requirements: 7.3, 7.6, 7.7_
 
-  - [~] 5.2 Write property test for match ordering
+  - [x] 5.2 Write property test for match ordering
     - **Property 13: Match ordering** — result ordered by score desc, buyer_id asc tie-break (total, stable)
     - Tag `# Feature: buybox-matcher, Property 13: ...`; run >= 100 iterations
     - **Validates: Requirements 7.3**
 
-  - [~] 5.3 Write property test for filter-then-limit retrieval
+  - [x] 5.3 Write property test for filter-then-limit retrieval
     - **Property 14: Filter-then-limit retrieval** — every result has score >= min_score, count <= limit, equals sort -> filter -> truncate
     - Tag `# Feature: buybox-matcher, Property 14: ...`; run >= 100 iterations
     - **Validates: Requirements 7.6, 7.7**
@@ -143,60 +143,60 @@ The backend is FastAPI / Python 3.11+ (`api/`); the frontend is React + TypeScri
     - Reject malformed bodies with 422 via the `PropertyInput` model without touching stored data
     - _Requirements: 7.1, 7.2, 7.4, 7.5, 7.8, 10.4, 10.8_
 
-  - [~] 5.5 Write integration tests for the match endpoint
+  - [x] 5.5 Write integration tests for the match endpoint
     - Cover happy path (200 with sorted matches), empty-buyer-set (200 empty array), `min_score`/`limit` behavior, invalid query param 422 with nothing persisted, and malformed-body 422
     - _Requirements: 7.1, 7.2, 7.4, 7.5, 7.8, 10.4, 10.8_
 
-- [ ] 6. AI extraction and buyer endpoints
+- [x] 6. AI extraction and buyer endpoints
   - [x] 6.1 Implement extract.py provider adapter and extraction pipeline
     - Build a thin provider adapter exposing `complete_json(system, user) -> str` selected by `AI_PROVIDER`, with a strict-JSON system prompt enumerating the nine Buy_Box fields, allowed enum vocabularies, and the null-for-absent rule
     - Implement `extract_buy_box(raw_text)`: call the provider with a 30s timeout, `json.loads` the result, coerce/validate via `BuyBoxModel`, and raise `ExtractionError` on timeout/provider error/unparseable output
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.9, 14.1_
 
-  - [~] 6.2 Implement POST /buy-boxes/extract and GET /buyers routes
+  - [x] 6.2 Implement POST /buy-boxes/extract and GET /buyers routes
     - On extract: reject whitespace-only `raw_text` with 422 before invoking the provider and persisting; map unparseable output to 422; map `price_min > price_max` to 422; on success persist buyer + buy_box (1:1) and return 201 `{buyer_id, buy_box}`; persist nothing on any failure
     - On `GET /buyers`: return 200 array of `{buyer_id, name, company, buy_box}` (empty when none)
     - _Requirements: 1.7, 1.8, 1.10, 1.11, 10.1, 10.2, 10.3, 10.8_
 
-  - [~] 6.3 Write property test for whitespace-only raw_text rejection
+  - [x] 6.3 Write property test for whitespace-only raw_text rejection
     - **Property 15: Whitespace-only raw_text is rejected** — whitespace/empty strings yield 422, provider not invoked, nothing persisted
     - Tag `# Feature: buybox-matcher, Property 15: ...`; run >= 100 iterations
     - **Validates: Requirements 1.8**
 
-  - [~] 6.4 Write property test for price-range validation invariant
+  - [x] 6.4 Write property test for price-range validation invariant
     - **Property 16: Price-range validation invariant** — non-null pair accepted iff `price_min <= price_max`, else 422 and nothing persisted
     - Tag `# Feature: buybox-matcher, Property 16: ...`; run >= 100 iterations
     - **Validates: Requirements 1.10**
 
-  - [~] 6.5 Write integration tests for extraction with a mocked provider
+  - [x] 6.5 Write integration tests for extraction with a mocked provider
     - Valid JSON -> 201; partial JSON -> null fields (no inference); non-JSON -> 422; provider error/timeout -> error with nothing persisted; `GET /buyers` happy path and empty array
     - _Requirements: 1.1, 1.3, 1.7, 1.9, 1.11, 10.2, 10.3_
 
-  - [~] 6.6 Checkpoint - backend match and extract flows pass
+  - [x] 6.6 Checkpoint - backend match and extract flows pass
     - Run the full backend test suite and ensure all unit, property, and integration tests pass. Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 7. Synthetic seed data
+- [x] 7. Synthetic seed data
   - [x] 7.1 Implement scripts/seed.py idempotent synthetic generator
     - Generate 140-160 buyers each with exactly one buy_box, tagged synthetic (sentinel marker) for idempotent skip-or-clear-then-reinsert within a transaction so reruns never duplicate or push count outside 140-160
     - Seed 8 explicit coverage fixtures (all four strategies and four property types) then randomize the remainder; draw `markets` from {Tampa, Lakeland, Orlando, Dallas, Houston, Cleveland, Nashville, Jacksonville}; keep `price_min`/`price_max` in [50k,600k] with `price_min<=price_max`, `arv_pct_max` in [65,80], `condition` in the four values, `min_beds` in [0,6], `min_baths` in [0,5], non-empty synthetic `raw_text`
     - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5_
 
-  - [~] 7.2 Write seed verification tests
+  - [x] 7.2 Write seed verification tests
     - Assert run yields 140-160 buyers each with one buy_box; rerun is idempotent (count in range, no duplicates); all strategies/types represented; `markets` subset of allowed set; numeric fields within specified ranges
     - _Requirements: 11.1, 11.2, 11.4, 11.5_
 
-- [ ] 8. Message draft stub
-  - [~] 8.1 Implement messaging.py and POST /match/{buyer_id}/message
+- [x] 8. Message draft stub
+  - [x] 8.1 Implement messaging.py and POST /match/{buyer_id}/message
     - Implement `draft_message(buyer, buy_box, property_in)` as a deterministic template referencing at least one buyer `markets` value and the property `address` or `city`, length 1..480, never transmitting
     - Add the route returning 200 `{channel:"sms", text}` for an existing buyer and 404 for an unknown buyer (drafter not invoked on 404)
     - _Requirements: 8.1, 8.2, 8.3, 8.4, 10.5, 10.6, 15.1_
 
-  - [~] 8.2 Write property test for message draft content invariant
+  - [x] 8.2 Write property test for message draft content invariant
     - **Property 17: Message draft content invariant** — draft references a buyer market and the property address/city, length in [1,480]
     - Tag `# Feature: buybox-matcher, Property 17: ...`; run >= 100 iterations
     - **Validates: Requirements 8.1**
 
-  - [~] 8.3 Write unit tests for the message route
+  - [x] 8.3 Write unit tests for the message route
     - Cover 200 success shape, 404 unknown buyer with no draft generated, and assert no outbound messaging client is invoked
     - _Requirements: 8.2, 8.3, 8.4, 10.5, 10.6, 15.1_
 
@@ -234,7 +234,7 @@ The backend is FastAPI / Python 3.11+ (`api/`); the frontend is React + TypeScri
     - Cover chips render, loading disables Extract, whitespace guard, 422 retention, and save confirmation
     - _Requirements: 12.3, 12.4, 12.5, 12.6, 12.7_
 
-- [ ] 11. Match screen
+- [x] 11. Match screen
   - [x] 11.1 Implement PropertyForm with live ARV% display
     - Address/city text, price/arv/beds/baths numeric, property_type/condition selects; display live Deal_ARV_Pct (1 decimal) while price>0 and arv>0; suppress it and show "arv must be greater than 0" when arv is empty/0 (reuse the Task 9.2 helper)
     - _Requirements: 13.1, 13.2, 13.3_
@@ -251,20 +251,20 @@ The backend is FastAPI / Python 3.11+ (`api/`); the frontend is React + TypeScri
     - Cover rows ordered desc, chip styles, color tiers, draft modal "not sent" label, and empty/loading/error/timeout states
     - _Requirements: 13.4, 13.5, 13.6, 13.7, 13.8, 13.9, 13.10, 13.11, 13.12_
 
-  - [~] 11.5 Checkpoint - frontend builds and tests pass
+  - [x] 11.5 Checkpoint - frontend builds and tests pass
     - Run the frontend build and test suite (`npm run build`, Vitest) and ensure all property and component tests pass. Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 12. Polish and deployment config
+- [x] 12. Polish and deployment config
   - [x] 12.1 Finalize error/empty/loading states and env examples
     - Audit Extract and Match screens for consistent loading, empty, and error states
     - Add `api/.env.example` (documenting `AI_PROVIDER`, provider key, `SUPABASE_URL`, `SUPABASE_KEY`, `ALLOWED_ORIGIN`, no real secrets) and `web/.env.example` (documenting only `VITE_API_URL`)
     - _Requirements: 12.4, 12.7, 13.10, 13.11, 13.12, 14.2, 14.3_
 
-  - [~] 12.2 Write run instructions in README
+  - [x] 12.2 Write run instructions in README
     - Document backend setup (migration, env, run), seed script invocation, and frontend setup/run steps
     - _Requirements: 11.1, 14.2, 14.3_
 
-  - [~] 12.3 Final checkpoint - full suite passes
+  - [x] 12.3 Final checkpoint - full suite passes
     - Run backend and frontend test suites end to end and ensure everything passes. Ensure all tests pass, ask the user if questions arise.
 
 ## Notes
