@@ -1171,3 +1171,70 @@ def test_property_11_beds_baths_scoring(prop, bb):
         assert component.reason in result.reasons.fit
     else:
         assert component.reason in result.reasons.risk
+
+
+# Feature: buybox-matcher, Property 12: Invalid scoring input is rejected without mutation
+# Validates: Requirements 2.10
+#
+# When the Property or Buy_Box is null, or is missing a field required for
+# scoring (`city`, `property_type`, or `markets`), `score()` must signal an
+# error identifying the invalid/missing input (ScoringInputError), produce no
+# numeric score, and leave the input data unmodified. This property exercises
+# all three missing-field cases:
+#   * missing `city` and/or `property_type` (invalid Property, valid Buy_Box),
+#   * missing `markets` (valid Property, invalid Buy_Box).
+# In each case the test snapshots the relevant input fields before the call
+# and asserts they are unchanged afterwards (no mutation), that score() raises
+# ScoringInputError, and that no numeric ScoreResult is returned.
+
+
+def _property_snapshot(p: ScoringProperty) -> tuple:
+    """Capture all scoring-relevant Property fields for a no-mutation check."""
+    return (p.city, p.property_type, p.condition, p.price, p.arv, p.beds, p.baths)
+
+
+def _buy_box_snapshot(b: ScoringBuyBox) -> tuple:
+    """Capture all scoring-relevant Buy_Box fields (markets copied) for a no-mutation check."""
+    return (
+        None if b.markets is None else list(b.markets),
+        b.strategy,
+        b.property_type,
+        b.price_min,
+        b.price_max,
+        b.arv_pct_max,
+        b.min_beds,
+        b.min_baths,
+        b.condition,
+    )
+
+
+@settings(max_examples=200)
+@given(prop=scoring_properties_missing_required(), bb=valid_scoring_buy_boxes())
+def test_property_12_missing_property_field_rejected_without_mutation(prop, bb):
+    """Missing `city`/`property_type` on the Property is rejected, inputs unmodified."""
+    prop_before = _property_snapshot(prop)
+    bb_before = _buy_box_snapshot(bb)
+
+    # score() signals the invalid-input error and produces no numeric score.
+    with pytest.raises(ScoringInputError):
+        score(prop, bb)
+
+    # Inputs are left unmodified (Req 2.10).
+    assert _property_snapshot(prop) == prop_before
+    assert _buy_box_snapshot(bb) == bb_before
+
+
+@settings(max_examples=200)
+@given(prop=valid_scoring_properties(), bb=scoring_buy_boxes_missing_required())
+def test_property_12_missing_markets_rejected_without_mutation(prop, bb):
+    """Missing `markets` on the Buy_Box is rejected, inputs unmodified."""
+    prop_before = _property_snapshot(prop)
+    bb_before = _buy_box_snapshot(bb)
+
+    # score() signals the invalid-input error and produces no numeric score.
+    with pytest.raises(ScoringInputError):
+        score(prop, bb)
+
+    # Inputs are left unmodified (Req 2.10).
+    assert _property_snapshot(prop) == prop_before
+    assert _buy_box_snapshot(bb) == bb_before
