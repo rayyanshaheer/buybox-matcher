@@ -348,6 +348,36 @@ def list_buyers_with_buy_boxes(client: Any | None = None) -> list[dict]:
     return buyers
 
 
+def get_buyer_with_buy_box(
+    buyer_id: str, client: Any | None = None
+) -> dict | None:
+    """Return a single Buyer (with embedded Buy_Box) by id, or ``None``.
+
+    Used by the message-draft route (Req 8.4 / 10.6) to distinguish an existing
+    buyer from an unknown one *before* the drafter runs: a ``None`` result maps
+    to HTTP 404 and the drafter is never invoked.
+
+    The query filters server-side by ``id``; the returned rows are additionally
+    matched in-process so the helper is correct even against a client that does
+    not honour the filter. The embedded ``buy_boxes`` relation is normalised to
+    a single ``buy_box`` entry (or ``None``) exactly as
+    :func:`list_buyers_with_buy_boxes` does.
+    """
+    conn = _resolve_client(client)
+    rows = _execute(
+        conn.table(BUYERS_TABLE)
+        .select(f"*, {BUY_BOXES_TABLE}(*)")
+        .eq("id", buyer_id)
+    )
+    for row in rows:
+        if str(row.get("id")) == str(buyer_id):
+            record = dict(row)
+            embedded = record.pop(BUY_BOXES_TABLE, None)
+            record["buy_box"] = _single_buy_box(embedded)
+            return record
+    return None
+
+
 def _single_buy_box(embedded: Any) -> dict | None:
     """Normalise PostgREST's embedded buy_box (list or object) to one row."""
     if embedded is None:

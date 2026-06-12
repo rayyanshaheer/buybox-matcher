@@ -597,3 +597,86 @@ def test_property_1_scoring_determinism(prop, bb):
     assert first.score == second.score
     assert first.reasons.fit == second.reasons.fit
     assert first.reasons.risk == second.reasons.risk
+
+
+# Feature: buybox-matcher, Property 2: Component scores never exceed configured weights and weights sum to 100
+# Validates: Requirements 2.2
+#
+# The Scoring_Engine reads every weight from a single Scoring_Config whose six
+# component weights (Market 30, Strategy 20, Price 20, ARV% 15, Property_Type
+# 10, Beds/Baths 5) sum to exactly 100. This property pins that invariant and,
+# across the generated input space, asserts that:
+#   * each individual component awards between 0 and its configured weight,
+#     inclusive (no component ever over-awards), and
+#   * the final clamped/capped score stays within [score_min, score_max].
+# The per-component bound is checked by reconstructing each component's
+# contribution through the engine's own component scorers, so the assertion
+# tracks exactly what score() sums internally.
+from api.scoring import (  # noqa: E402  (kept with its property block)
+    _score_arv,
+    _score_beds_baths,
+    _score_market,
+    _score_price,
+    _score_property_type,
+    _score_strategy,
+)
+
+
+def test_property_2_configured_weights_sum_to_100():
+    """The six component weights sum to exactly 100 (Req 2.2)."""
+    cfg = SCORING_CONFIG
+    total = (
+        cfg.weight_market
+        + cfg.weight_strategy
+        + cfg.weight_price
+        + cfg.weight_arv
+        + cfg.weight_property_type
+        + cfg.weight_beds_baths
+    )
+    assert total == 100
+    # Pin the individual weights named by Req 2.2.
+    assert cfg.weight_market == 30
+    assert cfg.weight_strategy == 20
+    assert cfg.weight_price == 20
+    assert cfg.weight_arv == 15
+    assert cfg.weight_property_type == 10
+    assert cfg.weight_beds_baths == 5
+
+
+@settings(max_examples=200)
+@given(prop=valid_scoring_properties(), bb=valid_scoring_buy_boxes())
+def test_property_2_component_scores_within_configured_weights(prop, bb):
+    cfg = SCORING_CONFIG
+
+    # Each component awards between 0 and its configured weight, inclusive.
+    component_bounds = [
+        (_score_market(prop, bb, cfg), cfg.weight_market),
+        (_score_strategy(prop, bb, cfg), cfg.weight_strategy),
+        (_score_price(prop, bb, cfg), cfg.weight_price),
+        (_score_arv(prop, bb, cfg), cfg.weight_arv),
+        (_score_property_type(prop, bb, cfg), cfg.weight_property_type),
+        (_score_beds_baths(prop, bb, cfg), cfg.weight_beds_baths),
+    ]
+    for component, weight in component_bounds:
+        assert 0 <= component.points <= weight
+
+    # The summed-then-capped-then-clamped score stays within configured bounds.
+    result = score(prop, bb, cfg)
+    assert cfg.score_min <= result.score <= cfg.score_max
+
+
+# Feature: buybox-matcher, Property 3: Score is an integer within [0, 100]
+# Validates: Requirements 2.3
+#
+# The Scoring_Engine returns a `score` that is an integer between 0 and 100
+# inclusive. Across the full generated input space (valid properties and buy
+# boxes, including null/zero/edge fields), score() must always yield an `int`
+# whose value lies within the closed interval [0, 100]. This holds regardless
+# of which components fire, whether the hard-filter cap applies, or how the raw
+# sum lands before clamping.
+@settings(max_examples=200)
+@given(prop=valid_scoring_properties(), bb=valid_scoring_buy_boxes())
+def test_property_3_score_is_integer_within_0_100(prop, bb):
+    result = score(prop, bb)
+    assert isinstance(result.score, int)
+    assert 0 <= result.score <= 100
